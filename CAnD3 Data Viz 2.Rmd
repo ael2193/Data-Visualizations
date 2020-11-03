@@ -1,0 +1,129 @@
+---
+title: "CAnD3 Data Viz"
+author: "Andrew Lai"
+date: "04/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(gapminder)
+library(dplyr)
+library(ggplot2)
+gapminder <- gapminder
+```
+
+```{r}
+
+gapminder %>%
+  filter(year == 2008) %>%
+  group_by(continent) %>%
+  summarise(lifeExp = median(lifeExp))
+
+ggplot(data = gapminder, aes(x = continent, y = lifeExp)) + 
+  geom_boxplot(outlier.color = "orange") +
+  geom_jitter(position = position_jitter(width = 0.1, height = 0), alpha = 0.25)
+
+```
+
+
+```{r}
+ggplot(subset(gapminder), 
+       aes(x = year, y = lifeExp, group = country, color = country)) +
+  geom_line(lwd = 1, show.legend = FALSE) + facet_wrap(~ continent) +
+  scale_color_manual(values = country_colors) + 
+  theme_bw() + theme(strip.text = element_text(size = rel(1.1)))
+
+```
+
+
+```{r}
+gap_with_colors <- data.frame(gapminder, 
+                              cc = I(country_colors[match(gapminder$country,
+                                                          names(country_colors))]))
+
+keepers <- with(gap_with_colors, 
+                continent %in% c("Africa", "Europe") & year == 2007)
+plot(lifeExp ~ gdpPercap, gap_with_colors, 
+     subset = keepers, log = 'x', pch = 21,
+     cex = sqrt(gap_with_colors$pop[keepers]/pi)/1500,
+     bg = gap_with_colors$cc[keepers])
+
+```
+
+```{r}
+ggplot(gapminder, aes(x=gdpPercap, y=lifeExp, color = continent, size = pop)) + 
+  geom_point(alpha = 0.5) +  ggtitle("Income Inequality") + 
+  xlab("Log GDP per Capita") + 
+  ylab("Life Expectancy") + 
+  scale_x_continuous(breaks = c(0, 1000, 10000, 100000), 
+                     trans = scales::log_trans()) +
+  scale_y_continuous(breaks = seq(0, 80, by = 10))
+
+```
+
+```{r}
+
+ggplot(gapminder, aes(x=gdpPercap, y=lifeExp, color = continent, size = pop)) + 
+  geom_point(alpha = 0.5) + 
+  geom_vline(aes(xintercept = median(gdpPercap), color = "red")) + 
+               ggtitle("Income Inequality") + 
+  xlab("Log GDP per Capita") + 
+  ylab("Life Expectancy") + 
+  scale_x_continuous(breaks = c(0, 1000, 10000, 100000), 
+                     trans = scales::log_trans()) +
+  scale_y_continuous(breaks = seq(0, 80, by = 10))
+
+```
+
+```{r, include=FALSE}
+setwd("/Users/andrewlai/Documents/QMSS Course Files/CAnD3/data")
+
+
+```
+
+
+```{r}
+
+covid = read.csv("Covus_NY.csv")
+covid$month <- format(as.Date(covid$date), "%m")
+
+covid %>%
+  filter(measure == 'hospitalized_currently') %>%
+  ggplot(., aes(x=month, y=(count))) + 
+  geom_boxplot(outlier.color = "orange") +
+  geom_jitter(position = position_jitter(width = 0.1, height = 0), 
+              alpha = 0.25) +
+  facet_wrap(~ state) +
+  ggtitle("Current Case Count by Month") +
+  xlab("Month") +
+  ylab("Current Case Count")
+
+
+
+```
+
+
+
+```{r}
+mean_covid <- covid %>%
+  filter(measure == 'hospitalized_currently') %>%
+  group_by(state, month) %>%
+  summarise(count = mean(count, na.rm = TRUE))
+
+
+ggplot(mean_covid, aes(x=month, y=count, color = state, group = state)) +
+  geom_point() + geom_line()
+```
+
+```{r}
+mean_covid_cum <- covid %>%
+  filter(state == 'NY') %>%
+  group_by(month, measure) %>%
+  summarise(count = mean(count, na.rm = TRUE))
+
+
+ggplot(mean_covid_cum, aes(x=month, y=count, color = measure, group = measure)) +
+  geom_point() + geom_line()
+```
