@@ -9,3 +9,8 @@
 - Data is from https://www.kaggle.com/traceyvanp/airlinefleet
 - Focus on Boeing Aircraft Type
 - Python/Jupyter Notebook
+
+## 3. UFC Visualizations
+- Data is from [Sports Data API](https://sportsdata.io/)
+- Visualizing features of UFC fighters by weight-class
+- Python/Jupyter Notebook
