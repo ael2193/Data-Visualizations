@@ -1,0 +1,117 @@
+---
+title: "Adidas Twitter Visualizations"
+author: "Andrew Lai"
+date: "28/02/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(tidytext)
+library(stringr)
+library(RColorBrewer)
+library(readr)
+```
+
+```{r}
+clean_tidy <- read.csv("clean_tidy.csv")
+```
+
+```{r}
+
+clean_tidy <- tidy_df %>%
+  select(user_id, has_URL, has_emoji, word)
+
+word_cloud <- clean_tidy %>% select(word)
+word_cloud <- na.omit(word_cloud)
+```
+
+```{r}
+word_cloud %>% count(word) %>%
+  with(wordcloud::wordcloud(word, n, max.words = 100, colors=brewer.pal(8, "Dark2")))
+```
+
+
+```{r}
+
+tidy_all_words <- tidy_df %>% 
+  group_by(word) %>%
+  summarise(Freq=n(), .groups = 'drop') %>%
+  arrange(desc(Freq))
+
+tidy_all_words <- na.omit(tidy_all_words)
+
+
+```
+
+
+```{r}
+tidy_nrc <- inner_join(tidy_all_words, get_sentiments("nrc"), by = "word")
+tidy_bing <- inner_join(tidy_all_words, get_sentiments("bing"), by = "word")
+tidy_afinn <- inner_join(tidy_all_words, get_sentiments("afinn"), by = "word")
+
+```
+
+```{r}
+# Wordcloud
+word_cloud %>% count(word) %>%
+  with(wordcloud::wordcloud(word, n, max.words = 100, 
+                            colors=brewer.pal(8, "Dark2")))
+```
+
+```{r}
+# AFINN PLOT
+tidy_afinn %>%
+  mutate(value = as.factor(value)) %>%
+  arrange(desc(value)) %>%
+  ggplot(., aes(x = Freq, y = value, fill = value)) +
+  geom_col() + 
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "none")
+```
+
+```{r}
+#BING Pie Plot
+tidy_bing <- tidy_bing %>%
+  mutate(percent = prop.table(Freq) * 100)
+bp <- ggplot(tidy_bing, aes(x="", y=Freq, fill=sentiment)) + 
+  geom_bar(stat="identity", width=1) 
+pie <- bp + coord_polar("y", start=0) 
+
+pie <- pie + labs(x = NULL, y = NULL, fill = NULL, 
+                  title = "Pie Plot of Positive/Negative")
+
+pie <- pie + theme_classic() + theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5))
+
+pie
+```
+
+
+```{r}
+# NRC PLOT
+tidy_nrc %>%
+  mutate(value = as.factor(sentiment)) %>%
+  arrange(desc(Freq)) %>%
+  ggplot(., aes(x = Freq, y = reorder(sentiment, -Freq), fill = sentiment)) +
+  geom_col() + 
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "none")
+
+```
+
+
+```{r}
+write_csv(word_cloud, "word_cloud.csv")
+write_csv(tidy_all_words, "tidy_all_words.csv")
+write_csv(tidy_nrc, "tidy_nrc.csv")
+write_csv(tidy_bing, "tidy_bing.csv")
+write_csv(tidy_afinn, "tidy_afinn.csv")
+```
