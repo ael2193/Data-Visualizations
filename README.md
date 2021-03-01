@@ -16,7 +16,7 @@
 - Python/Jupyter Notebook
 
 ## 4. [Adidas Text Visualizations](https://github.com/ael2193/Data-Visualizations/tree/master/Adidas%20Text%20Visualization)
-- Data is from [Twitter API] (https://developer.twitter.com/en/docs) but is not included in repo due to privacy concerns
+- Data is from [Twitter API](https://developer.twitter.com/en/docs) but is not included in repo due to privacy concerns
 - Visualizing Text and Sentiments on Twitter about the Adidas product
 - Used corpus of #adidas, #adidasoriginals, #yeezy350, #ultraboost
 - R Script for Cleaning 
