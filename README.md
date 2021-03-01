@@ -21,4 +21,4 @@
 - Used corpus of #adidas, #adidasoriginals, #yeezy350, #ultraboost
 - R Script for Cleaning 
 - R Markdown for Visualization
-- [Interactive Report](https://datastudio.google.com/s/thUUaIvoywE)
+
