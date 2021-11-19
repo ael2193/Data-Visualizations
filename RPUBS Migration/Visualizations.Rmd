@@ -1,0 +1,421 @@
+---
+title: "Untitled"
+author: "Andrew Lai"
+date: "12/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+library(countrycode)
+library(lubridate)
+library(RColorBrewer)
+library(plotly)
+```
+
+
+
+```{r, message = FALSE}
+df <- read_csv("refugeesAndMigrants.csv")
+df$country <- df$`country of incident`
+df$continent <- countrycode(sourcevar = df[['country']],
+                            origin = "country.name",
+                            destination = "continent")
+```
+
+```{r}
+df %>%
+  summarize(sum_number = sum(number, na.rm =TRUE))
+
+```
+```{r}
+europe <- df %>%
+  select(-`country of incident`, -`source`) %>%
+  filter(continent == "Europe") %>% 
+  group_by(country, `found dead`) %>%
+  summarize(sum_number = sum(number, na.rm =TRUE), .groups = 'drop') %>%
+  rename(date = `found dead`) %>%
+  ungroup()
+
+
+```
+
+```{r}
+d0 <- europe %>%
+  mutate(clean_date = dmy(date)) %>%
+  mutate(clean_year = year(clean_date)) %>%
+  filter((!is.na(clean_date))) %>%
+  select(country, sum_number, clean_year) 
+
+
+
+```
+
+```{r}
+d1 <- europe %>%
+  mutate(clean_date = dmy(date)) %>%
+  filter(is.na(clean_date)) %>%
+  mutate(check= parse_number(date)) 
+
+```
+
+```{r}
+
+d1$clean_year <- NA
+for(i in 1:nrow(d1)){
+  if(d1[i,5] > 1000){
+    # paste into position i of vector m
+    d1$clean_year[i] <- d1[i,5]
+  } else if(d1[i,5] > 18){
+    # paste into position i of vector m
+    d1$clean_year[i]  <- d1[i,5] + 1900
+  } else if(d1[i,5] <= 18) {
+    d1$clean_year[i]  <- d1[i,5] + 2000
+
+  }
+}
+
+```
+
+```{r}
+d1 <- d1 %>%
+  mutate(clean_year = as.numeric(as.character(unlist(d1$clean_year)))) %>%
+  select(country, sum_number, clean_year)
+
+```
+
+```{r}
+europe_1 <- rbind(d0,d1)
+
+```
+
+```{r}
+europe_1 <- europe_1 %>%
+  group_by(country, clean_year) %>%
+  arrange(country, clean_year)
+
+```
+
+```{r}
+
+europe_2 <- europe_1 %>% 
+  group_by(clean_year, country) %>%
+  summarise(sum_max_amount = sum(sum_number), .groups = 'drop') %>%
+  arrange(clean_year, country)
+
+```
+
+```{r}
+
+europeanUnion <- c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                   "Czech Rep.","Denmark","Estonia","Finland","France",
+                   "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                   "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                   "Portugal","Romania","Slovakia","Slovenia","Spain",
+                   "Sweden","United Kingdom")
+
+eu <- as.data.frame(europeanUnion)
+
+```
+
+```{r}
+europe_2 <- full_join(europe_2, eu, by = c("country"="europeanUnion"))
+
+```
+
+```{r}
+europe_3 <- europe_2 %>%
+     group_by(country) %>% 
+     complete(clean_year = 1993:2018) %>% 
+     select(country, Year = clean_year, sum_max_amount) %>%
+  arrange(country) %>%
+  replace(is.na(.), 0) %>% 
+  mutate(Cumulative_Deaths = cumsum(sum_max_amount))
+```
+
+```{r}
+europe_3$code <- countrycode(europe_3$country,"country.name", "iso3c")
+
+```
+
+```{r}
+europe_3 <- europe_3 %>%
+  filter(Year != 0) %>%
+  mutate(hover=paste0(country, "\n",Cumulative_Deaths, " Deaths"))
+
+```
+
+```{r}
+write_csv(europe_3, "europe_3.csv")
+```
+
+```{r}
+
+europe_3 <- read_csv("europe_3.csv")
+```
+
+
+
+
+
+
+```{r}
+library(plotly)
+
+g <- list(scope = 'europe')
+
+graph <- plot_geo(europe_3, frame = ~Year) %>%
+  add_trace(
+    z = ~Cumulative_Deaths, 
+    zmin = 0,
+    zmax = max(europe_3$Cumulative_Deaths), 
+    locations = ~code,
+    color = ~Cumulative_Deaths, 
+    colorscale = 'Purples',
+    text = ~hover,
+    hoverinfo='text') %>%
+  colorbar(title = "") %>%
+  layout(title= list(text = "\nTotal Cumulative Migrant Deaths in Europe\n(1993-2018)", 
+                     x = 0.01), 
+         margin = list(b = 50, l = 50),
+         geo = list(scope = 'europe', 
+                    lataxis = list(range = c(30, 80)),
+                    lonaxis = list(range = c(-10, 40)))) %>%
+  config(displayModeBar = FALSE)
+graph
+
+```
+
+
+
+
+
+
+```{r}
+# not working not used
+#start_date <- as.Date('1993/1/1')
+#date_range <- seq(start_date, by = 'year', length.out = 26)
+#date_range <- year(date_range)
+#date_range <- as.data.frame(date_range)
+#europe_3 <- full_join(europe_2, date_range, by = c("clean_year"="date_range"))
+```
+
+```{r}
+## not working
+#europe_1 %>%
+#  group_by(country) %>%
+#  mutate(cum_death = sum_number + lag(sum_number, default=first(sum_number)))
+
+```
+
+
+## second graph 
+
+```{r}
+text <- df %>%
+  filter(continent == "Europe") %>%
+  mutate(description = `cause of death`) %>%
+  select(`found dead`, `number`, `country`, continent, description) %>%
+  rename(date = `found dead`,
+         deaths = `number`,
+         country = `country`) %>%
+  mutate(description = tolower(description)) 
+  
+```
+
+```{r}
+sea <- c("boat", "drown", "drowning", "sea", "ocean")
+vehicle <- c("stowaway", "car", "vehicle", 
+             "plane", "airplane", "train", "truck", "van")
+fire <- c("arson", "fire", "gas", "gasoline")
+suicide <- c("suicide", "hanged", "hang", "jump", 
+             "drugs", "drug", "hungerstrike", "suffocate", "suffocated")
+murder <- c("fight", "murder", "murdered")
+
+suicide_muder <- c("suicide", "hanged", "hang", "jump", 
+             "drugs", "drug", "hungerstrike", "suffocate", "suffocated",
+             "fight", "murder", "murdered")
+
+
+```
+
+```{r}
+text_1 <- text %>%  
+  mutate(sea = case_when(grepl(paste(sea, collapse="|"), description) ~ "Sea",
+                            TRUE ~ "Other")) %>%
+  mutate(vehicle = case_when(grepl(paste(vehicle, collapse="|"), description) ~ "Vehicle",
+                            TRUE ~ "Other")) %>%
+  mutate(fire = case_when(grepl(paste(fire, collapse="|"), description) ~ "Fire",
+                            TRUE ~ "Other")) %>%
+  mutate(suicide = case_when(grepl(paste(suicide, collapse="|"), description) ~ "Suicide",
+                            TRUE ~ "Other")) %>%
+  mutate(murder = case_when(grepl(paste(suicide, collapse="|"), description) ~ "Murder",
+                            TRUE ~ "Other")) 
+
+```
+
+```{r}
+
+## Stopped Here have to multiply deaths by number of occurrences for cause of death
+text_2 <- text %>%  
+  mutate(cause = case_when(grepl(paste(sea, collapse="|"), description) ~ "Sea",
+                           grepl(paste(vehicle, collapse="|"), description) ~ "Vehicle",
+                           grepl(paste(fire, collapse="|"), description) ~ "Fire",
+                           grepl(paste(suicide, collapse="|"), description) ~ "Suicide",
+                           grepl(paste(murder, collapse="|"), description) ~ "Murder",
+                            TRUE ~ "Other"))  %>%
+  group_by(cause, country, deaths) %>%
+  tally()
+
+
+```
+
+```{r}
+graph2 <- text_2 %>%
+  mutate(cumulative_deaths = deaths * n)
+
+```
+
+```{r}
+# workshopping graph
+graph2 %>%
+  filter(country %in% c('Spain', 'Italy', 'Greece', 'France')) %>%
+  group_by(country, cause) %>%
+  arrange(desc(cumulative_deaths)) %>%
+  ggplot(aes(x = cumulative_deaths, y = reorder(cause, cumulative_deaths),
+             label=cumulative_deaths)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~country, ncol = 2, scales = "free") +
+  labs(x = "Frequency",
+       y = 'Cause of Death') +
+  ggtitle("Cause of Death by Country") +
+  theme(plot.title = element_text(vjust=2, hjust = 0.5),
+        legend.position =  'none') + 
+  ylim('Vehicle', 'Other', 'Sea')
+
+
+```
+
+
+```{r}
+# workshopping graph in percent  - stopped here
+check <- graph2 %>%
+  filter(country %in% c('Spain', 'Italy', 'Greece', 'France')) %>%
+  group_by(country, cause) %>%
+  arrange(desc(cumulative_deaths)) %>%
+  ggplot(aes(x = ..prop.., y = cause,  group = 1)) +
+  geom_bar(show.legend = FALSE, stat = 'count') +
+  facet_wrap(~country, ncol = 2, scales = "free") +
+  labs(x = "Percentage",
+       y = 'Cause of Death') +
+  ggtitle("Cause of Death by Country") +
+  theme(plot.title = element_text(vjust=2, hjust = 0.5),
+        legend.position =  'none') + 
+  ylim('Suicide', 'Murder', 'Fire','Vehicle', 'Other', 'Sea') + 
+  scale_x_continuous(labels = scales::percent_format()) +
+  coord_cartesian(xlim=c(0, 1))
+
+check
+
+
+```
+
+
+
+```{r}
+graph2 %>%
+  filter(country %in% c('Spain', 'Italy', 'Greece', 'France')) %>%
+  group_by(country) %>%
+  mutate(percent = prop.table(cumulative_deaths) * 100) %>%
+  arrange(desc(percent)) %>%
+  group_by(cause, country)
+
+```
+
+```{r}
+graph3 <- graph2 %>%
+  filter(country %in% c('Spain', 'Italy', 'Greece', 'France')) %>%
+  group_by(country, cause) %>%
+  summarize(sum_deaths = sum(cumulative_deaths)) %>%
+  mutate(percent = round((prop.table(sum_deaths) * 100), 2)) 
+```
+
+```{r}
+graph3
+
+```
+
+```{r}
+write_csv(graph3, "graph3.csv")
+
+```
+
+
+
+```{r}
+graph3$cause <- factor(graph3$cause , ordered = TRUE, 
+                                levels = c("Sea", "Other", "Vehicle", "Fire",
+                                           'Murder', "Suicide"))
+
+my_colors <- c("blue1", "#4DAF4A", "#FF7F00", 
+               "#E41A1C", "#FFFF33", "#984EA3")
+
+```
+
+```{r}
+barplot <- ggplot(graph3, aes(x = percent, y = cause, fill = cause)) +
+  geom_col(show.legend = FALSE, col = 'black') +
+  facet_wrap(~country, ncol = 2) +
+  labs(x = "Percentage",
+       y = 'Cause of Death') +
+  ggtitle("Cause of Death by Country\n(1993-2018)") +
+  ylim('Suicide', 'Murder', 'Fire','Vehicle', 'Other', 'Sea') +
+  xlim(0,100) + 
+  scale_fill_manual(values = my_colors) +
+ geom_text(
+    aes(x = percent, y = cause, label = paste0(percent, "%")), 
+    hjust = -0.5, size = 3.5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        strip.text = element_text(size=15),
+        plot.title = element_text(family = "sans", hjust = 0.5,
+                                  size = 18, margin=margin(0,0,10,0)),
+        panel.grid.minor = element_blank(),
+        strip.background = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA))
+
+barplot
+
+```
+
+
+
+
+```{r}
+## checking summary statistics
+
+graph2 %>%
+  filter(country %in% c('France')) %>%
+  filter(cause == 'Sea') %>%
+  summarize(d = sum(cumulative_deaths))
+
+
+europe_3 %>%
+  summarize(sum = sum(sum_max_amount))
+
+text %>%
+  summarize(sum = sum(deaths))
+
+df %>%
+  filter(country == "Spain") %>%
+  summarize(deaths = sum(number))
+
+
+```

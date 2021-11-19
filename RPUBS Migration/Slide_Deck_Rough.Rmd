@@ -1,0 +1,86 @@
+---
+title: "Migrant Fatalities from Travel"
+author: "Andrew Lai"
+date: "02/06/2021"
+output:
+  slidy_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, include=FALSE, message=FALSE}
+library(tidyverse)
+library(plotly)
+```
+
+
+## Total Cumulative Migrant Deaths in Europe (1993-2018) {.smaller}
+
+```{r, include = FALSE, message=FALSE}
+europe_3 <- read_csv("europe_3.csv")
+g <- list(scope = 'europe')
+
+graph <- plot_geo(europe_3, frame = ~Year) %>%
+  add_trace(
+    z = ~Cumulative_Deaths, 
+    zmin = 0,
+    zmax = max(europe_3$Cumulative_Deaths), 
+    locations = ~code,
+    color = ~Cumulative_Deaths, 
+    colorscale = 'Purples',
+    text = ~hover,
+    hoverinfo='text') %>%
+  colorbar(title = "") %>%
+  layout(margin = list(b = 50, l = 50),
+         geo = list(scope = 'europe', 
+                    lataxis = list(range = c(30, 80)),
+                    lonaxis = list(range = c(-10, 40)))) %>%
+  config(displayModeBar = FALSE)
+```
+
+```{r, echo=FALSE, fig.height=7.25, fig.width=14.5}
+graph
+```
+
+## Cause of Death by Country (1993-2018) {.smaller}
+
+```{r, include = FALSE, message=FALSE}
+graph3 <- read_csv("graph3.csv")
+graph3$cause <- factor(graph3$cause , ordered = TRUE, 
+                                levels = c("Sea", "Other", "Vehicle", "Fire",
+                                           'Murder', "Suicide"))
+
+my_colors <- c("blue1", "#4DAF4A", "#FF7F00", 
+               "#E41A1C", "#FFFF33", "#984EA3")
+
+barplot <- ggplot(graph3, aes(x = percent, y = cause, fill = cause)) +
+  geom_col(show.legend = FALSE, col = 'black') +
+  facet_wrap(~country, ncol = 2) +
+  labs(x = "Percentage",
+       y = 'Cause of Death') +
+  ylim('Suicide', 'Murder', 'Fire','Vehicle', 'Other', 'Sea') +
+  xlim(0,100) + 
+  scale_fill_manual(values = my_colors) +
+ geom_text(
+    aes(x = percent, y = cause, label = paste0(percent, "%")), 
+    hjust = -0.5, size = 3.5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        strip.text = element_text(size=15),
+        plot.title = element_text(family = "sans", hjust = 0.5,
+                                  size = 18, margin=margin(0,0,10,0)),
+        panel.grid.minor = element_blank(),
+        strip.background = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA))
+```
+
+```{r, echo=FALSE, fig.height=6, fig.width=12, fig.align='center'}
+barplot
+```
+
+Approximately 80% of all migrant deaths in the main 4 countries are sea-related.
